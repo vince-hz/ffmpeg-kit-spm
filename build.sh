@@ -1,12 +1,12 @@
 #!/bin/sh
 set -e
 
-FFMPEG_KIT_TAG="min.v5.1.2.6"
-FFMPEG_KIT_CHECKOUT="origin/develop"
+FFMPEG_KIT_TAG="v5.1.2.8"
+FFMPEG_KIT_CHECKOUT="origin/vince"
 #FFMPEG_KIT_CHECKOUT="origin/tags/$FFMPEG_KIT_TAG"
 
-FFMPEG_KIT_REPO="https://github.com/tylerjonesio/ffmpeg-kit"
-WORK_DIR=".tmp/ffmpeg-kit"
+FFMPEG_KIT_REPO="https://github.com/vince-hz/ffmpeg-build"
+WORK_DIR=".tmp/ffmpeg-build"
 
 if [[ ! -d $WORK_DIR ]]; then
   echo "Cloning ffmpeg-kit repository..."
@@ -25,17 +25,41 @@ git checkout $FFMPEG_KIT_CHECKOUT
 echo "Install build dependencies..."
 brew install autoconf automake libtool pkg-config curl git doxygen nasm bison wget gettext gh
 
-echo "Building for iOS..."
-./ios.sh --enable-ios-audiotoolbox --enable-ios-avfoundation --enable-ios-videotoolbox --enable-ios-zlib --enable-ios-bzip2 --no-bitcode --enable-gmp --enable-gnutls -x
-echo "Building for tvOS..."
-./tvos.sh --enable-tvos-audiotoolbox --enable-tvos-videotoolbox --enable-tvos-zlib --enable-tvos-bzip2 --no-bitcode --enable-gmp --enable-gnutls -x
-echo "Building for macOS..."
-./macos.sh --enable-macos-audiotoolbox --enable-macos-avfoundation --enable-macos-bzip2 --enable-macos-videotoolbox --enable-macos-zlib --enable-macos-coreimage --enable-macos-opencl --enable-macos-opengl --enable-gmp --enable-gnutls -x
-echo "Building for watchOS..."
-#./watchos.sh --enable-watchos-zlib --enable-watchos-bzip2 --no-bitcode --enable-gmp --enable-gnutls -x
+# bison 的路径要手动指定，不然会跑到 xcode 里去。
+export PATH="/opt/homebrew/opt/bison/bin:$PATH"
 
-echo "Bundling final XCFramework"
-./apple.sh --disable-watchos --disable-watchsimulator
+echo "Building for iOS..."
+
+# --enable-libvpx \
+# --enable-lame \
+# --disable-arm64-simulator \
+# --disable-arm64 \
+# --disable-arm64e \
+./ios.sh \
+--disable-arm64e \
+--disable-x86-64 \
+--disable-x86-64-mac-catalyst \
+--disable-arm64-mac-catalyst \
+--enable-ios-audiotoolbox \
+--enable-ios-avfoundation \
+--enable-ios-videotoolbox \
+--enable-ios-zlib \
+--enable-ios-bzip2 \
+--enable-gmp \
+--enable-gnutls \
+--no-bitcode \
+-x
+
+# echo "Bundling final XCFramework"
+# ./apple.sh \
+# --disable-iphonesimulator \
+# --disable-mac-catalyst \
+# --disable-appletvos \
+# --disable-appletvsimulator \
+# --disable-watchos \
+# --disable-watchsimulator \
+# --disable-macosx
+# ./apple.sh --disable-watchos --disable-watchsimulator
 
 cd ../../
 
@@ -43,7 +67,8 @@ echo "Updating package file..."
 PACKAGE_STRING=""
 sed -i '' -e "s/let release =.*/let release = \"$FFMPEG_KIT_TAG\"/" Package.swift
 
-XCFRAMEWORK_DIR="$WORK_DIR/prebuilt/bundle-apple-xcframework"
+XCFRAMEWORK_DIR="$WORK_DIR/prebuilt/bundle-apple-xcframework-ios"
+# XCFRAMEWORK_DIR="$WORK_DIR/prebuilt/bundle-apple-xcframework"
 
 rm -rf $XCFRAMEWORK_DIR/*.zip
 
@@ -61,7 +86,7 @@ PACKAGE_STRING=$(basename "$PACKAGE_STRING" ", ")
 sed -i '' -e "s/let frameworks =.*/let frameworks = [$PACKAGE_STRING]/" Package.swift
 
 echo "Copying License..."
-cp -f .tmp/ffmpeg-kit/LICENSE ./
+cp -f .tmp/ffmpeg-build/LICENSE ./
 
 echo "Committing Changes..."
 git add -u
